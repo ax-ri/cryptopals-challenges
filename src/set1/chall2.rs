@@ -1,10 +1,10 @@
 use crate::set1::utils;
 
 pub fn run() {
-    let a = b"\x1c\x01\x11\x00\x1f\x01\x01\x00\x06\x1a\x02\x4b\x53\x53\x50\x09\x18\x1c";
-    let b = b"\x68\x69\x74\x20\x74\x68\x65\x20\x62\x75\x6c\x6c\x27\x73\x20\x65\x79\x65";
+    let a = utils::hex_string_to_bytes("1c0111001f010100061a024b53535009181c");
+    let b = utils::hex_string_to_bytes("686974207468652062756c6c277320657965");
     assert_eq!(
-        utils::vec_xor(a, b),
-        b"\x74\x68\x65\x20\x6b\x69\x64\x20\x64\x6f\x6e\x27\x74\x20\x70\x6c\x61\x79"
+        utils::vec_xor(&a, &b),
+        utils::hex_string_to_bytes("746865206b696420646f6e277420706c6179")
     )
 }

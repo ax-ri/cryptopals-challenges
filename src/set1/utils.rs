@@ -1,4 +1,16 @@
+use std::fs;
 use std::iter::zip;
+use std::num::ParseIntError;
+
+// from https://stackoverflow.com/a/52992629
+pub fn hex_string_to_bytes(hex_string: &str) -> Vec<u8> {
+    assert_eq!(hex_string.len() & 1, 0);
+    let result: Result<Vec<u8>, ParseIntError> = (0..hex_string.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex_string[i..i + 2], 16))
+        .collect();
+    result.expect("Integer parse error: unable to parse byte")
+}
 
 pub mod base64 {
     static ALPHABET: &[u8; 64] =
@@ -102,4 +114,11 @@ pub(crate) fn compute_characters_frequencies(m: &str) -> [f32; 255] {
         *f /= count;
     }
     frequencies
+}
+
+pub(crate) fn generate_reference_frequencies() -> [f32; 255] {
+    let dictionary = fs::read_to_string("assets/english_words.txt")
+        .unwrap()
+        .replace("\n", " ");
+    compute_characters_frequencies(&dictionary)
 }
