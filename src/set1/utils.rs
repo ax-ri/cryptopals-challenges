@@ -1,3 +1,5 @@
+use std::iter::zip;
+
 pub mod base64 {
     static ALPHABET: &[u8; 64] =
         b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -72,4 +74,11 @@ pub mod base64 {
             assert_eq!(encode(bytes), "TQ==");
         }
     }
+}
+
+pub fn vec_xor(a: &[u8], b: &[u8]) -> Vec<u8> {
+    assert_eq!(a.len(), b.len());
+    zip(a.iter(), b.iter())
+        .map(|(a, b)| a ^ b)
+        .collect::<Vec<_>>()
 }
