@@ -82,3 +82,24 @@ pub fn vec_xor(a: &[u8], b: &[u8]) -> Vec<u8> {
         .map(|(a, b)| a ^ b)
         .collect::<Vec<_>>()
 }
+
+pub(crate) fn vec_distance(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len());
+    assert!(!a.is_empty());
+    zip(a, b)
+        .map(|(a, b)| (a - b) * (a - b))
+        .reduce(|acc, x| acc + x)
+        .unwrap()
+}
+
+pub(crate) fn compute_characters_frequencies(m: &str) -> [f32; 255] {
+    let mut frequencies = [0.0_f32; 255];
+    for c in m.bytes() {
+        frequencies[c as usize] += 1.0;
+    }
+    let count = m.len() as f32;
+    for f in frequencies.iter_mut() {
+        *f /= count;
+    }
+    frequencies
+}
