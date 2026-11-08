@@ -11,7 +11,7 @@ pub fn run() {
     for line in fs::read_to_string("assets/chall_1.4.txt")
         .unwrap()
         .split("\n")
-        .map(utils::hex_string_to_bytes)
+        .map(utils::hex::string_to_bytes)
     {
         if let Ok((_, decrypted, minimal_error)) =
             single_byte_xor_decrypt(&line, &reference_frequencies)

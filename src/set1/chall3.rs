@@ -1,5 +1,4 @@
 use crate::set1::utils;
-use crate::set1::utils::hex_string_to_bytes;
 
 pub(crate) fn single_byte_xor_decrypt(
     ciphertext: &[u8],
@@ -30,8 +29,9 @@ pub(crate) fn single_byte_xor_decrypt(
 pub fn run() {
     let reference_frequencies = utils::generate_reference_frequencies();
 
-    let ciphertext =
-        hex_string_to_bytes("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736");
+    let ciphertext = utils::hex::string_to_bytes(
+        "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736",
+    );
     let (key, plaintext, _) = single_byte_xor_decrypt(&ciphertext, &reference_frequencies).unwrap();
     assert_eq!(key, 'X');
     assert_eq!(plaintext, "Cooking MC's like a pound of bacon");

@@ -1,7 +1,7 @@
 use crate::set1::utils;
 
 pub fn run() {
-    let bytes = utils::hex_string_to_bytes(
+    let bytes = utils::hex::string_to_bytes(
         "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d",
     );
     assert_eq!(
