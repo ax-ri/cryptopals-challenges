@@ -6,6 +6,6 @@ pub fn run() {
     );
     assert_eq!(
         utils::base64::encode(&bytes),
-        "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t"
+        b"SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t"
     );
 }
