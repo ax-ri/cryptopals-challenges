@@ -1,5 +1,6 @@
 use super::Key;
 use super::core;
+use super::pad_pkcs_7;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum DecryptError {
@@ -20,16 +21,10 @@ pub(crate) mod ecb {
 
         let keys = core::expand_key(key);
 
+        // divided in 16-byte blocks
+        // and pad the last block with PKCS7-padding
         let (blocks, last) = bytes.as_chunks::<16>();
-        // pad the last block with PKCS7-padding
-        let last: [u8; 16] = {
-            let mut last = last.to_vec();
-            let padding_count = 16 - (bytes.len() % 16);
-            let mut padding = vec![padding_count as u8; padding_count];
-            last.append(&mut padding);
-            debug_assert!(last.len() == 16);
-            last.try_into().unwrap() // conversion will always be successful as last is 16-byte long
-        };
+        let last = super::pad_pkcs_7(last);
 
         // encrypt each block in parallel
         let mut encryted = blocks

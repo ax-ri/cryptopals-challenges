@@ -1,4 +1,4 @@
-use crate::set1::utils;
+use crate::utils;
 use std::fs;
 
 pub fn run() {

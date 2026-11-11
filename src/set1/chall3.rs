@@ -1,4 +1,4 @@
-use crate::set1::utils;
+use crate::utils;
 
 pub(crate) fn single_byte_xor_decrypt(
     ciphertext: &[u8],

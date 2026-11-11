@@ -1,6 +1,6 @@
-use crate::set1::{chall3, utils};
+use crate::set1::chall3;
+use crate::utils;
 use std::fs;
-use std::string::FromUtf8Error;
 
 fn find_key_size(ciphertext: &[u8], max_size: usize, m: usize) -> usize {
     let mut minimal_mean = f32::MAX;
@@ -36,7 +36,7 @@ fn find_key_size(ciphertext: &[u8], max_size: usize, m: usize) -> usize {
     best_key_size
 }
 
-pub(crate) fn run() -> Result<String, FromUtf8Error> {
+pub(crate) fn run() {
     let content = fs::read_to_string("assets/chall_1.6.txt")
         .unwrap()
         .split("\n")
@@ -78,5 +78,5 @@ pub(crate) fn run() -> Result<String, FromUtf8Error> {
     assert_eq!(repeated_key.len(), ciphertext.len());
 
     let result = utils::vec_xor(&ciphertext, &repeated_key);
-    String::from_utf8(result)
+    let _ = String::from_utf8(result);
 }

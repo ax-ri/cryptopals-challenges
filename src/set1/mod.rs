@@ -1,5 +1,3 @@
-mod utils;
-
 pub(crate) mod chall1;
 pub(crate) mod chall2;
 pub(crate) mod chall3;
@@ -7,3 +5,4 @@ pub(crate) mod chall4;
 pub(crate) mod chall5;
 pub(crate) mod chall6;
 pub(crate) mod chall7;
+pub(crate) mod chall8;

@@ -1,5 +1,5 @@
 use crate::set1::chall3::single_byte_xor_decrypt;
-use crate::set1::utils;
+use crate::utils;
 use std::fs;
 
 pub fn run() {

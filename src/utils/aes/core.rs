@@ -415,7 +415,7 @@ pub(crate) fn decrypt_state(s: &State, keys: &ExpandedKey) -> State {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::set1::utils::hex;
+    use crate::utils::hex;
 
     #[test]
     fn test_rot_word() {
