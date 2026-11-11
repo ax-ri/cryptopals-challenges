@@ -6,3 +6,4 @@ pub(crate) mod chall3;
 pub(crate) mod chall4;
 pub(crate) mod chall5;
 pub(crate) mod chall6;
+pub(crate) mod chall7;
