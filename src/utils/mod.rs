@@ -2,6 +2,8 @@ pub mod aes;
 pub mod base64;
 pub mod hex;
 
+use crate::utils;
+use rand::{Rng, RngExt};
 use std::fs;
 use std::iter::zip;
 
@@ -51,6 +53,10 @@ pub(crate) fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
         return 0;
     }
     zip(a, b).map(|(a, b)| (*a ^ *b).count_ones()).sum()
+}
+
+pub(crate) fn generate_random_key(rng: &mut impl Rng) -> utils::aes::Key {
+    rng.random()
 }
 
 #[cfg(test)]

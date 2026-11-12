@@ -1,7 +1,7 @@
 use crate::utils;
 use std::fs;
 
-fn detect_aes_ecb(bytes: &[u8]) -> bool {
+pub fn detect_aes_ecb(bytes: &[u8]) -> bool {
     assert_eq!(bytes.len() % 16, 0);
 
     let mut count: u32 = 0;
