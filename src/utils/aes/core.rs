@@ -1,3 +1,5 @@
+use crate::utils;
+
 static S_BOX: [u8; 256] = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -197,7 +199,7 @@ fn rcon(i: usize) -> Word {
 }
 
 fn xor_words(a: &Word, b: &Word) -> Word {
-    [a[0] ^ b[0], a[1] ^ b[1], a[2] ^ b[2], a[3] ^ b[3]]
+    utils::static_array_xor(a, b)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -231,6 +233,7 @@ pub(crate) fn expand_key(key: &Key) -> ExpandedKey {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#[allow(dead_code)]
 fn print_state(s: &State) {
     for i in 0..4 {
         for j in 0..4 {
@@ -363,26 +366,10 @@ fn mix_columns_inverse(s: &State) -> State {
     })
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 fn add_round_key(s: &State, round_idx: usize, keys: &ExpandedKey) -> State {
-    let k = keys[round_idx];
-    [
-        s[0] ^ k[0],
-        s[1] ^ k[1],
-        s[2] ^ k[2],
-        s[3] ^ k[3],
-        s[4] ^ k[4],
-        s[5] ^ k[5],
-        s[6] ^ k[6],
-        s[7] ^ k[7],
-        s[8] ^ k[8],
-        s[9] ^ k[9],
-        s[10] ^ k[10],
-        s[11] ^ k[11],
-        s[12] ^ k[12],
-        s[13] ^ k[13],
-        s[14] ^ k[14],
-        s[15] ^ k[15],
-    ]
+    utils::static_array_xor(s, &keys[round_idx])
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

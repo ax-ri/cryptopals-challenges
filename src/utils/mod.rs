@@ -12,6 +12,14 @@ pub fn vec_xor(a: &[u8], b: &[u8]) -> Vec<u8> {
         .collect::<Vec<_>>()
 }
 
+pub fn static_array_xor<const N: usize>(a: &[u8; N], b: &[u8; N]) -> [u8; N] {
+    zip(a.iter(), b.iter())
+        .map(|(a, b)| a ^ b)
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap()
+}
+
 pub(crate) fn vec_distance(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
     assert!(!a.is_empty());

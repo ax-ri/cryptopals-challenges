@@ -1,16 +1,57 @@
 use super::Key;
 use super::core;
-use super::pad_pkcs_7;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum DecryptError {
     InvalidInput,
 }
 
+/// pad a block to a fixed length
+/// the block must not be greater than the fixed length
+pub(crate) fn pad_pkcs_7<const N: usize>(bytes: &[u8]) -> [u8; N] {
+    debug_assert!(bytes.len() <= N);
+
+    let padding_count = N - (bytes.len() % N);
+    let mut padded = [padding_count as u8; N];
+    padded[..bytes.len()].copy_from_slice(bytes);
+
+    padded
+}
+
+/// compute the number of padding bytes
+fn compute_pkcs_7_padding_bytes_count<const N: usize>(blocks: &[[u8; N]]) -> usize {
+    let last_decrypted = blocks.last().unwrap();
+    let padding_count = last_decrypted[N - 1];
+    padding_count as usize
+}
+
+/// divided in 16-byte blocks
+/// and pad the last block with PKCS7-padding
+fn divide_in_blocks_for_encryption(bytes: &[u8]) -> (&[[u8; 16]], [u8; 16]) {
+    let (blocks, last) = bytes.as_chunks::<16>();
+    let last = pad_pkcs_7(last);
+    (blocks, last)
+}
+
+fn divide_in_blocks_for_decryption(bytes: &[u8]) -> Result<&[[u8; 16]], DecryptError> {
+    let (blocks, last) = bytes.as_chunks::<16>();
+    if !last.is_empty() {
+        return Err(DecryptError::InvalidInput);
+    }
+    Ok(blocks)
+}
+
+fn remove_padding(blocks: &[[u8; 16]]) -> Vec<u8> {
+    let extra_bytes_count = compute_pkcs_7_padding_bytes_count(blocks);
+    let mut bytes = blocks.concat();
+    bytes.resize(bytes.len() - extra_bytes_count, 0);
+    bytes
+}
+
 pub(crate) mod ecb {
-    use super::DecryptError;
-    use super::Key;
-    use super::core;
+    use super::{DecryptError, divide_in_blocks_for_encryption};
+    use super::{Key, divide_in_blocks_for_decryption};
+    use super::{core, remove_padding};
 
     use rayon::prelude::*;
 
@@ -19,12 +60,8 @@ pub(crate) mod ecb {
             return vec![];
         }
 
+        let (blocks, last) = divide_in_blocks_for_encryption(bytes);
         let keys = core::expand_key(key);
-
-        // divided in 16-byte blocks
-        // and pad the last block with PKCS7-padding
-        let (blocks, last) = bytes.as_chunks::<16>();
-        let last = super::pad_pkcs_7(last);
 
         // encrypt each block in parallel
         let mut encryted = blocks
@@ -42,35 +79,24 @@ pub(crate) mod ecb {
             return Ok(vec![]);
         }
 
+        let blocks = divide_in_blocks_for_decryption(bytes)?;
         let keys = core::expand_key(key);
 
-        let (blocks, last) = bytes.as_chunks::<16>();
-        if !last.is_empty() {
-            return Err(DecryptError::InvalidInput);
-        }
-        let (last, blocks) = blocks.split_last().unwrap();
-
         // decrypt each block in parallel
-        let mut decrypted = blocks
+        let decrypted = blocks
             .into_par_iter()
             .map(|b| core::decrypt_state(b, &keys))
-            .collect::<Vec<_>>()
-            .concat();
+            .collect::<Vec<_>>();
 
-        // add the last decrypted block, with padding removed
-        let last_decrypted = core::decrypt_state(last, &keys);
-        let padding_count = *last_decrypted.last().unwrap();
-        decrypted.extend(&last_decrypted[..(16 - padding_count as usize)]);
-
-        Ok(decrypted)
+        Ok(remove_padding(&decrypted))
     }
 
+    #[cfg(test)]
+    use super::test_data;
     #[cfg(test)]
     mod test {
         use super::*;
 
-        static PLAINTEXT: [u8; 445] = *b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-        static KEY: [u8; 16] = *b"YELLOW SUBMARINE";
         static CIPHERTEXT: [u8; 448] = [
             0xea, 0xdc, 0xc5, 0xaa, 0x48, 0x00, 0xdf, 0xf1, 0x75, 0xa4, 0x9c, 0xf3, 0xa0, 0xf2,
             0x04, 0x1d, 0x7e, 0xba, 0x65, 0xee, 0x35, 0xa7, 0x66, 0x14, 0x18, 0x9f, 0x7e, 0x28,
@@ -108,21 +134,21 @@ pub(crate) mod ecb {
 
         #[test]
         fn test_encrypt() {
-            assert_eq!(encrypt(&[], &KEY), []);
+            assert_eq!(encrypt(&[], &test_data::KEY), []);
             assert_eq!(
-                encrypt(&KEY, &KEY),
+                encrypt(&test_data::KEY, &test_data::KEY),
                 [
                     0xd1, 0xaa, 0x4f, 0x65, 0x78, 0x92, 0x65, 0x42, 0xfb, 0xb6, 0xdd, 0x87, 0x6c,
                     0xd2, 0x05, 0x08, 0x60, 0xfa, 0x36, 0x70, 0x7e, 0x45, 0xf4, 0x99, 0xdb, 0xa0,
                     0xf2, 0x5b, 0x92, 0x23, 0x01, 0xa5
                 ]
             );
-            assert_eq!(encrypt(&PLAINTEXT, &KEY), CIPHERTEXT);
+            assert_eq!(encrypt(&test_data::PLAINTEXT, &test_data::KEY), CIPHERTEXT);
         }
 
         #[test]
         fn test_decrypt() {
-            assert_eq!(decrypt(&[], &KEY), Ok(vec![]));
+            assert_eq!(decrypt(&[], &test_data::KEY), Ok(vec![]));
             assert_eq!(
                 decrypt(
                     &[
@@ -130,11 +156,149 @@ pub(crate) mod ecb {
                         0x6c, 0xd2, 0x05, 0x08, 0x60, 0xfa, 0x36, 0x70, 0x7e, 0x45, 0xf4, 0x99,
                         0xdb, 0xa0, 0xf2, 0x5b, 0x92, 0x23, 0x01, 0xa5
                     ],
-                    &KEY
+                    &test_data::KEY
                 ),
-                Ok(Vec::from(KEY))
+                Ok(Vec::from(&test_data::KEY))
             );
-            assert_eq!(decrypt(&CIPHERTEXT, &KEY), Ok(Vec::from(PLAINTEXT)));
+            assert_eq!(
+                decrypt(&CIPHERTEXT, &test_data::KEY),
+                Ok(Vec::from(&test_data::PLAINTEXT))
+            );
         }
     }
+}
+
+pub(crate) mod cbc {
+    use super::{DecryptError, Key};
+    use super::{core, divide_in_blocks_for_decryption};
+    use super::{divide_in_blocks_for_encryption, remove_padding};
+    use crate::utils::static_array_xor;
+    use std::iter::zip;
+
+    pub fn encrypt(bytes: &[u8], key: &Key, iv: &[u8; 16]) -> Vec<u8> {
+        if bytes.is_empty() {
+            return vec![];
+        }
+
+        let (blocks, last) = divide_in_blocks_for_encryption(bytes);
+        let keys = core::expand_key(key);
+
+        let mut last_cipher = iv;
+        let mut encrypted = Vec::with_capacity(16 * bytes.len());
+        for block in blocks {
+            let ciphertext = core::encrypt_state(&static_array_xor(block, last_cipher), &keys);
+            encrypted.push(ciphertext);
+            last_cipher = encrypted.last().unwrap();
+        }
+        encrypted.push(core::encrypt_state(
+            &static_array_xor(&last, last_cipher),
+            &keys,
+        ));
+
+        encrypted.concat()
+    }
+
+    pub fn decrypt(bytes: &[u8], key: &Key, iv: &[u8; 16]) -> Result<Vec<u8>, DecryptError> {
+        if bytes.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let blocks = divide_in_blocks_for_decryption(bytes)?;
+        let keys = core::expand_key(key);
+
+        let decrypted = zip(0..blocks.len(), 0..blocks.len())
+            .map(|(i, j)| {
+                let (b0, b1) = (if i == 0 { iv } else { &blocks[i - 1] }, &blocks[j]);
+                static_array_xor(b0, &core::decrypt_state(b1, &keys))
+            })
+            .collect::<Vec<_>>();
+
+        Ok(remove_padding(&decrypted))
+    }
+
+    #[cfg(test)]
+    use super::test_data;
+    #[cfg(test)]
+    mod test {
+        use super::*;
+
+        static IV: [u8; 16] = [0; 16];
+
+        static CIPHERTEXT: [u8; 448] = [
+            0xea, 0xdc, 0xc5, 0xaa, 0x48, 0x00, 0xdf, 0xf1, 0x75, 0xa4, 0x9c, 0xf3, 0xa0, 0xf2,
+            0x04, 0x1d, 0xd8, 0x52, 0x2f, 0x70, 0x0d, 0x28, 0x7d, 0x46, 0xfe, 0xfe, 0x12, 0x51,
+            0x0d, 0x62, 0x6f, 0x2a, 0x60, 0x26, 0xf0, 0xfc, 0x63, 0x6c, 0x32, 0x0d, 0x90, 0x94,
+            0x8d, 0x01, 0x3b, 0x4f, 0xc0, 0x2c, 0x96, 0x53, 0x13, 0xdb, 0x71, 0x3b, 0xec, 0xf5,
+            0x80, 0x3c, 0x01, 0xbf, 0xef, 0xf1, 0xe1, 0x37, 0xcb, 0x50, 0xdc, 0xa3, 0xff, 0x33,
+            0xe4, 0x46, 0x14, 0xaf, 0x62, 0x79, 0x17, 0x96, 0x0f, 0x98, 0x31, 0x8d, 0xd2, 0x87,
+            0x89, 0xec, 0x0e, 0xe8, 0x8a, 0x49, 0xcd, 0xd2, 0xb7, 0x08, 0x58, 0xe4, 0x0f, 0xfd,
+            0x3e, 0x1a, 0x25, 0xe4, 0x66, 0xa8, 0x46, 0xf7, 0x8d, 0x34, 0x75, 0x03, 0x77, 0xe6,
+            0x65, 0xa0, 0x8c, 0x3c, 0x86, 0xc7, 0x9a, 0xcd, 0x28, 0x91, 0x0a, 0x71, 0x18, 0x32,
+            0x5e, 0x2a, 0x2a, 0x22, 0x3b, 0x8d, 0x0a, 0x81, 0x6e, 0x09, 0x5c, 0x10, 0x86, 0x39,
+            0xb1, 0xa0, 0xfc, 0x1e, 0x94, 0xc4, 0x69, 0x24, 0x2a, 0xe6, 0x5c, 0xf3, 0x30, 0x4e,
+            0xba, 0x20, 0x7c, 0xc5, 0x82, 0x7c, 0xa6, 0xeb, 0x64, 0x74, 0x5a, 0x95, 0x50, 0xb5,
+            0x59, 0x76, 0xf9, 0x93, 0x8d, 0x0e, 0x77, 0x1d, 0xd3, 0x93, 0xfc, 0xd1, 0xf0, 0x19,
+            0x70, 0x5b, 0xcf, 0x0d, 0x28, 0x0b, 0xf2, 0x62, 0x62, 0xe8, 0x2d, 0xe4, 0x74, 0x72,
+            0x6a, 0xf9, 0xd0, 0xd2, 0xc7, 0x6f, 0x8d, 0xfa, 0xa4, 0x2a, 0xcb, 0x3c, 0x25, 0xcd,
+            0x82, 0x5b, 0x8f, 0x5f, 0x04, 0xc8, 0x1f, 0x71, 0xc9, 0x15, 0x67, 0xac, 0x82, 0xe6,
+            0xd7, 0x57, 0x0c, 0x6c, 0xa7, 0xb8, 0x56, 0x3c, 0x4b, 0x68, 0x65, 0x96, 0x93, 0x09,
+            0xa2, 0x70, 0x8c, 0x5a, 0xb4, 0xd0, 0x87, 0x3e, 0x7f, 0x43, 0xd1, 0x05, 0x5f, 0x91,
+            0xf5, 0x13, 0xe7, 0xa1, 0xa6, 0x59, 0x68, 0xd3, 0xc0, 0x1c, 0xbf, 0xe9, 0x50, 0xd2,
+            0x5f, 0xe6, 0x88, 0x77, 0xe9, 0x76, 0x8b, 0xa4, 0x19, 0xc4, 0x9a, 0xf5, 0x9d, 0xb4,
+            0x8b, 0x1d, 0x0e, 0x89, 0xf0, 0x4e, 0xe0, 0x17, 0x9b, 0xee, 0x0d, 0x96, 0xf8, 0xda,
+            0x90, 0x03, 0xed, 0x08, 0x43, 0x99, 0x4d, 0x04, 0x4e, 0x41, 0x09, 0xb5, 0x5a, 0x8a,
+            0xa1, 0xa0, 0x0d, 0xb5, 0xdc, 0x57, 0x9a, 0xdf, 0x47, 0x78, 0xe8, 0xa7, 0x09, 0xc0,
+            0x62, 0xd8, 0xed, 0xa6, 0xde, 0x58, 0x59, 0xba, 0x7e, 0xcb, 0xd2, 0x07, 0x8a, 0xbe,
+            0xa6, 0x39, 0x2d, 0xd9, 0x20, 0x82, 0xa6, 0x10, 0xf4, 0xac, 0x26, 0xf2, 0xe5, 0x95,
+            0x91, 0xce, 0x7e, 0x37, 0x1b, 0xc0, 0xc5, 0xf1, 0x6f, 0x87, 0x22, 0x95, 0x10, 0x89,
+            0xce, 0x39, 0xe6, 0xfe, 0x20, 0x9e, 0x72, 0x36, 0x7c, 0x6c, 0xc4, 0x7c, 0x6f, 0x3b,
+            0x91, 0x1a, 0xb8, 0x3d, 0x5b, 0xe6, 0x95, 0xf6, 0x96, 0x1a, 0x3a, 0x55, 0x64, 0xc5,
+            0x3f, 0xf9, 0x04, 0x72, 0x6b, 0xf9, 0xe7, 0xf8, 0x8d, 0x38, 0x5c, 0xc6, 0x2c, 0xa6,
+            0xe4, 0x9e, 0x6e, 0x2d, 0x99, 0x21, 0x13, 0xee, 0xa3, 0xa4, 0xaf, 0x9f, 0x6f, 0xca,
+            0xb7, 0x24, 0x8b, 0xec, 0x15, 0xa5, 0xed, 0xba, 0x91, 0xb1, 0x1e, 0x20, 0x1d, 0xec,
+            0xec, 0xfa, 0x3b, 0x5c, 0x89, 0xf3, 0xca, 0x6b, 0x52, 0x10, 0x7e, 0x3a, 0x27, 0x49,
+        ];
+
+        #[test]
+        fn test_encrypt() {
+            assert_eq!(encrypt(&[], &test_data::KEY, &IV), []);
+            assert_eq!(
+                encrypt(&test_data::KEY, &test_data::KEY, &IV),
+                [
+                    209, 170, 79, 101, 120, 146, 101, 66, 251, 182, 221, 135, 108, 210, 5, 8, 220,
+                    162, 216, 79, 72, 150, 160, 10, 181, 222, 205, 16, 157, 28, 234, 153
+                ]
+            );
+            assert_eq!(
+                encrypt(&test_data::PLAINTEXT, &test_data::KEY, &IV),
+                CIPHERTEXT
+            );
+        }
+
+        #[test]
+        fn test_decrypt() {
+            assert_eq!(decrypt(&[], &test_data::KEY, &IV), Ok(vec![]));
+            assert_eq!(
+                decrypt(
+                    &[
+                        209, 170, 79, 101, 120, 146, 101, 66, 251, 182, 221, 135, 108, 210, 5, 8,
+                        220, 162, 216, 79, 72, 150, 160, 10, 181, 222, 205, 16, 157, 28, 234, 153
+                    ],
+                    &test_data::KEY,
+                    &IV
+                ),
+                Ok(Vec::from(&test_data::KEY))
+            );
+            assert_eq!(
+                decrypt(&CIPHERTEXT, &test_data::KEY, &IV),
+                Ok(Vec::from(&test_data::PLAINTEXT))
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_data {
+    pub(crate) static PLAINTEXT: [u8; 445] = *b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+    pub(crate) static KEY: [u8; 16] = *b"YELLOW SUBMARINE";
 }

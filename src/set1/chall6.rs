@@ -36,7 +36,7 @@ fn find_key_size(ciphertext: &[u8], max_size: usize, m: usize) -> usize {
     best_key_size
 }
 
-pub(crate) fn run() {
+pub fn run() {
     let content = fs::read_to_string("assets/chall_1.6.txt")
         .unwrap()
         .split("\n")

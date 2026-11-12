@@ -119,9 +119,9 @@ pub fn decode(bytes: &[u8]) -> Vec<u8> {
 
 #[cfg(test)]
 mod test {
-  use super::*;
+    use super::*;
 
-  #[test]
+    #[test]
     fn test_encode() {
         assert_eq!(encode(b""), b"");
         assert_eq!(encode(b"f"), b"Zg==");
