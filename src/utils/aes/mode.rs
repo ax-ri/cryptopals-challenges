@@ -8,11 +8,21 @@ pub(crate) enum DecryptError {
 
 /// pad a block to a fixed length
 /// the block must not be greater than the fixed length
-pub(crate) fn pad_pkcs_7<const N: usize>(bytes: &[u8]) -> [u8; N] {
+pub(crate) fn pad_pkcs_7_static<const N: usize>(bytes: &[u8]) -> [u8; N] {
     debug_assert!(bytes.len() <= N);
 
     let padding_count = N - (bytes.len() % N);
     let mut padded = [padding_count as u8; N];
+    padded[..bytes.len()].copy_from_slice(bytes);
+
+    padded
+}
+
+pub(crate) fn pad_pkcs_7_dynamic(n: usize, bytes: &[u8]) -> Vec<u8> {
+    debug_assert!(bytes.len() <= n);
+
+    let padding_count = n - (bytes.len() % n);
+    let mut padded = vec![padding_count as u8; n];
     padded[..bytes.len()].copy_from_slice(bytes);
 
     padded
@@ -29,7 +39,7 @@ fn compute_pkcs_7_padding_bytes_count<const N: usize>(blocks: &[[u8; N]]) -> usi
 /// and pad the last block with PKCS7-padding
 fn divide_in_blocks_for_encryption(bytes: &[u8]) -> (&[[u8; 16]], [u8; 16]) {
     let (blocks, last) = bytes.as_chunks::<16>();
-    let last = pad_pkcs_7(last);
+    let last = pad_pkcs_7_static(last);
     (blocks, last)
 }
 
