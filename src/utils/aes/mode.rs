@@ -173,7 +173,8 @@ pub(crate) mod cbc {
     use super::{core, divide_in_blocks_for_decryption};
     use super::{divide_in_blocks_for_encryption, remove_padding};
     use crate::utils::static_array_xor;
-    use std::iter::zip;
+
+    use rayon::prelude::*;
 
     pub fn encrypt(bytes: &[u8], key: &Key, iv: &[u8; 16]) -> Vec<u8> {
         if bytes.is_empty() {
@@ -206,7 +207,9 @@ pub(crate) mod cbc {
         let blocks = divide_in_blocks_for_decryption(bytes)?;
         let keys = core::expand_key(key);
 
-        let decrypted = zip(0..blocks.len(), 0..blocks.len())
+        let decrypted = (0..blocks.len())
+            .into_par_iter()
+            .zip(0..blocks.len())
             .map(|(i, j)| {
                 let (b0, b1) = (if i == 0 { iv } else { &blocks[i - 1] }, &blocks[j]);
                 static_array_xor(b0, &core::decrypt_state(b1, &keys))
