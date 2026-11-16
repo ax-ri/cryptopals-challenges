@@ -29,6 +29,5 @@ fn main() {
         }
     };
 
-    run_challs_up_to(10);
-    // run_chall(10);
+    run_challs_up_to(12);
 }
