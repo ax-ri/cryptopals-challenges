@@ -1,3 +1,5 @@
+//! Custom AES-128 implementation.
+
 mod core;
 mod mode;
 

@@ -1,3 +1,8 @@
+//! The core AES-128 algorithm, encrypting and decrypting a 16-byte block.
+//!
+//! This implementation is based on the steps described in the blockbreakers tutorial, available at
+//! https://web.archive.org/web/20230428141954/https://www.davidwong.fr/blockbreakers/aes.html.
+
 use crate::utils;
 
 static S_BOX: [u8; 256] = [

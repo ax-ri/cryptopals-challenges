@@ -1,3 +1,5 @@
+//! Hex strings utility functions.
+
 use std::num::ParseIntError;
 
 // from https://stackoverflow.com/a/52992629

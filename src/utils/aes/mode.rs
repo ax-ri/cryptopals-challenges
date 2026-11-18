@@ -1,3 +1,5 @@
+//! Different block cipher modes of operation, to be used with the core AES.
+
 use super::Key;
 use super::core;
 
@@ -6,10 +8,13 @@ pub(crate) enum DecryptError {
     InvalidInput,
 }
 
-/// pad a block to a fixed length
-/// the block must not be greater than the fixed length
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Pad a block to a fixed length.
+///
+/// The block must not be greater than the fixed length
 pub(crate) fn pad_pkcs_7_static<const N: usize>(bytes: &[u8]) -> [u8; N] {
-    debug_assert!(bytes.len() <= N);
+    assert!(bytes.len() <= N);
 
     let padding_count = N - (bytes.len() % N);
     let mut padded = [padding_count as u8; N];
@@ -18,8 +23,11 @@ pub(crate) fn pad_pkcs_7_static<const N: usize>(bytes: &[u8]) -> [u8; N] {
     padded
 }
 
+/// Pad a block to a fixed length.
+///
+/// The block must not be greater than the fixed length
 pub(crate) fn pad_pkcs_7_dynamic(n: usize, bytes: &[u8]) -> Vec<u8> {
-    debug_assert!(bytes.len() <= n);
+    assert!(bytes.len() <= n);
 
     let padding_count = n - (bytes.len() % n);
     let mut padded = vec![padding_count as u8; n];
@@ -28,27 +36,11 @@ pub(crate) fn pad_pkcs_7_dynamic(n: usize, bytes: &[u8]) -> Vec<u8> {
     padded
 }
 
-/// compute the number of padding bytes
+/// Compute the number of padding bytes
 fn compute_pkcs_7_padding_bytes_count<const N: usize>(blocks: &[[u8; N]]) -> usize {
     let last_decrypted = blocks.last().unwrap();
     let padding_count = last_decrypted[N - 1];
     padding_count as usize
-}
-
-/// divided in 16-byte blocks
-/// and pad the last block with PKCS7-padding
-fn divide_in_blocks_for_encryption(bytes: &[u8]) -> (&[[u8; 16]], [u8; 16]) {
-    let (blocks, last) = bytes.as_chunks::<16>();
-    let last = pad_pkcs_7_static(last);
-    (blocks, last)
-}
-
-fn divide_in_blocks_for_decryption(bytes: &[u8]) -> Result<&[[u8; 16]], DecryptError> {
-    let (blocks, last) = bytes.as_chunks::<16>();
-    if !last.is_empty() {
-        return Err(DecryptError::InvalidInput);
-    }
-    Ok(blocks)
 }
 
 fn remove_padding(blocks: &[[u8; 16]]) -> Vec<u8> {
@@ -58,6 +50,25 @@ fn remove_padding(blocks: &[[u8; 16]]) -> Vec<u8> {
     bytes
 }
 
+/// Divide a byte array in 16-byte blocks and pad the last block with PKCS7-padding
+fn divide_in_blocks_for_encryption(bytes: &[u8]) -> (&[[u8; 16]], [u8; 16]) {
+    let (blocks, last) = bytes.as_chunks::<16>();
+    let last = pad_pkcs_7_static(last);
+    (blocks, last)
+}
+
+/// Divide a byte array in 16-byte blocks, returns an error if the division is not exact
+fn divide_in_blocks_for_decryption(bytes: &[u8]) -> Result<&[[u8; 16]], DecryptError> {
+    let (blocks, last) = bytes.as_chunks::<16>();
+    if !last.is_empty() {
+        return Err(DecryptError::InvalidInput);
+    }
+    Ok(blocks)
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// ECB mode (https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Electronic_codebook_(ECB))
 pub(crate) mod ecb {
     use super::{DecryptError, divide_in_blocks_for_encryption};
     use super::{Key, divide_in_blocks_for_decryption};
@@ -178,6 +189,7 @@ pub(crate) mod ecb {
     }
 }
 
+/// CBC mode (https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_block_chaining_(CBC))
 pub(crate) mod cbc {
     use super::{DecryptError, Key};
     use super::{core, divide_in_blocks_for_decryption};
