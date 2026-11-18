@@ -20,7 +20,7 @@ fn make_oracle(rng: &mut impl Rng) -> (impl Fn(&[u8]) -> Vec<u8>, usize) {
 }
 
 pub fn run() {
-    let mut rng = rand::rngs::SmallRng::from_seed([78; 32]);
+    let mut rng = rand::rngs::SmallRng::from_seed([0; 32]);
 
     let (oracle, secret_prefix_length) = make_oracle(&mut rng);
 

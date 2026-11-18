@@ -3,6 +3,7 @@
 pub mod aes;
 pub mod base64;
 pub mod hex;
+pub mod url_encoding;
 
 use rand::{Rng, RngExt};
 use std::fs;
